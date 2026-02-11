@@ -11,7 +11,7 @@ era5_result.pdf: src/test.py era5_model.pt
 		--image_size 256 \
 		--checkpoint era5_model.pt \
 		--M 10 \
-		--N 100 \
+		--N 50 \
 		--diffusion_steps 1000 \
 		--hyper_net_dims 1 24 24 24 24 24
 
@@ -59,6 +59,16 @@ src/hyperdm.py: model/mlp.py
 
 toy_baseline.pdf: src/toy_baseline.py
 	time python src/toy_baseline.py
+
+eval.py: src/eval.py
+	time python src/eval.py \
+		--dataset "era5" \
+		--image_size 256 \
+		--checkpoint era5_model.pt \
+		--M 5 \
+		--N 10 \
+		--diffusion_steps 1000 \
+		--hyper_net_dims 1 24 24 24 24 24
 
 
 clean:

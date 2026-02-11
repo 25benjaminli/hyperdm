@@ -97,6 +97,7 @@ def era5_test(args):
         radius=int(.03 * args.image_size))
     ood[mask] = 1
     ood = ood.reshape(1, 1, *ood.shape).to(device)
+    print("ood shape", ood.shape, "M, N", args.M, args.N)
     mean, var = hyperdm.get_mean_variance(M=args.M,
                                           N=args.N,
                                           condition=ood,
