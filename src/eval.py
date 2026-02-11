@@ -1,32 +1,30 @@
 import numpy as np
 import torch as th
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import Subset
 from tqdm import tqdm
 from skimage.metrics import peak_signal_noise_ratio as psnr
 from skimage.metrics import structural_similarity as ssim
-import properscoring as ps  # pip install properscoring
 
 from data.dataset import Dataset
 from data.era5 import ERA5
-from data.toy import ToyDataset
 from guided_diffusion.script_util import create_gaussian_diffusion
-from model.mlp import MLP
 from model.unet import Unet
 from hyperdm import HyperDM
 from src.util import parse_test_args
 
 
-def compute_metrics(predictions, targets, uncertainties=None):
+def compute_metrics(predictions, targets):
     metrics = {}
     
     preds_np = predictions.cpu().numpy()
     targets_np = targets.cpu().numpy()
-    
-    # normalize
+
+    # print("preds np, targets range", preds_np.min(), preds_np.max(), targets_np.min(), targets_np.max())
+
+    # min-max normalize to go from 0-1
     preds_np = (preds_np - preds_np.min()) / (preds_np.max() - preds_np.min() + 1e-8)
     targets_np = (targets_np - targets_np.min()) / (targets_np.max() - targets_np.min() + 1e-8)
     
-    # PSNR and SSIM
     psnr_scores = []
     ssim_scores = []
     
@@ -39,10 +37,7 @@ def compute_metrics(predictions, targets, uncertainties=None):
         psnr_scores.append(psnr_val)
         
         # SSIM
-        if pred_img.ndim == 2:  # Grayscale
-            ssim_val = ssim(target_img, pred_img, data_range=1.0)
-        else:  # Multi-channel
-            ssim_val = ssim(target_img, pred_img, data_range=1.0, channel_axis=0)
+        ssim_val = ssim(target_img, pred_img, data_range=1.0)
         ssim_scores.append(ssim_val)
     
     metrics['psnr_mean'] = np.mean(psnr_scores)
@@ -120,75 +115,14 @@ def evaluate_hyperdm_era5(args):
     return {**basic_metrics}
 
 
-def evaluate_hyperdm_toy(args):
-    """Evaluate HyperDM on toy dataset"""
-    device = "cuda" if th.cuda.is_available() else "cpu"
-    
-    # Load model
-    primary_net = MLP([3, 8, 16, 8, 1])
-    diffusion = create_gaussian_diffusion(steps=args.diffusion_steps,
-                                          predict_xstart=True,
-                                          timestep_respacing="ddim10")
-    hyperdm = HyperDM(primary_net, args.hyper_net_dims, diffusion).to(device)
-    hyperdm.load_state_dict(th.load(args.checkpoint, weights_only=True))
-    hyperdm.eval()
-    
-    # Load test dataset
-    dataset = ToyDataset(args.dataset_size, split="test")
-    
-    print(f"Evaluating on toy dataset...")
-    
-    all_preds = []
-    all_targets = []
-    all_epistemic = []
-    all_aleatoric = []
-    
-    for x, y in tqdm(dataset):
-        y = y.unsqueeze(0).to(device)
-        
-        with th.no_grad():
-            mean, var = hyperdm.get_mean_variance(
-                M=args.M,
-                N=args.N,
-                condition=y,
-                device=device,
-                progress=False
-            )
-        
-        pred = mean.mean(dim=0).squeeze()
-        epistemic = mean.var(dim=0).squeeze()
-        aleatoric = var.mean(dim=0).squeeze()
-        
-        all_preds.append(pred.item())
-        all_targets.append(x.item())
-        all_epistemic.append(epistemic.item())
-        all_aleatoric.append(aleatoric.item())
-    
-    # Compute metrics
-    all_preds = np.array(all_preds)
-    all_targets = np.array(all_targets)
-    all_epistemic = np.array(all_epistemic)
-    all_aleatoric = np.array(all_aleatoric)
-    
-    mse = np.mean((all_preds - all_targets) ** 2)
-    rmse = np.sqrt(mse)
-    
-    print("\n=== Evaluation Results (Toy) ===")
-    print(f"RMSE: {rmse:.4f}")
-    print(f"Epistemic Uncertainty: {all_epistemic.mean():.6f}")
-    print(f"Aleatoric Uncertainty: {all_aleatoric.mean():.6f}")
-
-    return {'rmse': rmse}
-
-
 if __name__ == "__main__":
     args = parse_test_args()
     print(args)
     
     if args.dataset == Dataset.ERA5:
         metrics = evaluate_hyperdm_era5(args)
-    elif args.dataset == Dataset.TOY:
-        metrics = evaluate_hyperdm_toy(args)
+    # elif args.dataset == Dataset.TOY:
+    #     metrics = evaluate_hyperdm_toy(args)
     else:
         raise NotImplementedError()
     
