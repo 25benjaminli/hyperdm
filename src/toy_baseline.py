@@ -110,7 +110,7 @@ if __name__ == "__main__":
     eu_norm = normalize_range(eu, low=0, high=1)
     au_norm = normalize_range(au, low=0, high=1)
 
-    plt.rcParams['text.usetex'] = True
+    plt.rcParams['text.usetex'] = False # latex bugs out
     plt.scatter(x=dataset.x,
                 y=dataset.y,
                 s=5,

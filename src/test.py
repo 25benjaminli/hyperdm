@@ -123,7 +123,7 @@ def era5_test(args):
 if __name__ == "__main__":
     args = parse_test_args()
     print(args)
-    plt.rcParams['text.usetex'] = True
+    plt.rcParams['text.usetex'] = False # latex bugs out
 
     if args.seed:
         rng = th.manual_seed(args.seed)

@@ -57,8 +57,9 @@ src/test.py: src/hyperdm.py data/era5.py data/toy.py model/mlp.py model/unet.py
 
 src/hyperdm.py: model/mlp.py
 
-toy_baseline.pdf: src/toy_baseline.py data/toy.py src/hyperdm.py model/mlp.py
-	time python src/debug.py
+toy_baseline.pdf: src/toy_baseline.py
+	time python src/toy_baseline.py
+
 
 clean:
 	rm -rf *.pt *.pdf
